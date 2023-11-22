@@ -18,7 +18,7 @@ def predict_proba(X, weights, biases):
 
 
 def load_model_weights(path: str):
-    model_weights = np.load(path)
+    model_weights = np.load(path, allow_pickle=True)
     return model_weights["weights"], model_weights["biases"]
 
 
