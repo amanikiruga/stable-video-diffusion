@@ -52,9 +52,9 @@ class BaseDiffusionSampler:
         return x, s_in, sigmas, num_sigmas, cond, uc
 
     def denoise(self, x, denoiser, sigma, cond, uc):
-        denoised = denoiser(*self.guider.prepare_inputs(x, sigma, cond, uc))
+        denoised, feats = denoiser(*self.guider.prepare_inputs(x, sigma, cond, uc))
         denoised = self.guider(denoised, sigma)
-        return denoised
+        return denoised, feats
 
     def get_sigma_gen(self, num_sigmas):
         sigma_generator = range(num_sigmas - 1)
@@ -96,7 +96,7 @@ class EDMSampler(SingleStepDiffusionSampler):
             eps = torch.randn_like(x) * self.s_noise
             x = x + eps * append_dims(sigma_hat**2 - sigma**2, x.ndim) ** 0.5
 
-        denoised = self.denoise(x, denoiser, sigma_hat, cond, uc)
+        denoised, feats = self.denoise(x, denoiser, sigma_hat, cond, uc)
         d = to_d(x, sigma_hat, denoised)
         dt = append_dims(next_sigma - sigma_hat, x.ndim)
 
@@ -104,12 +104,14 @@ class EDMSampler(SingleStepDiffusionSampler):
         x = self.possible_correction_step(
             euler_step, x, d, dt, next_sigma, denoiser, cond, uc
         )
-        return x
+        return x, feats
 
     def __call__(self, denoiser, x, cond, uc=None, num_steps=None):
         x, s_in, sigmas, num_sigmas, cond, uc = self.prepare_sampling_loop(
             x, cond, uc, num_steps
         )
+
+        feats = None
 
         for i in self.get_sigma_gen(num_sigmas):
             gamma = (
@@ -117,7 +119,7 @@ class EDMSampler(SingleStepDiffusionSampler):
                 if self.s_tmin <= sigmas[i] <= self.s_tmax
                 else 0.0
             )
-            x = self.sampler_step(
+            x, feats = self.sampler_step(
                 s_in * sigmas[i],
                 s_in * sigmas[i + 1],
                 denoiser,
@@ -127,7 +129,7 @@ class EDMSampler(SingleStepDiffusionSampler):
                 gamma,
             )
 
-        return x
+        return x, feats
 
 
 class AncestralSampler(SingleStepDiffusionSampler):

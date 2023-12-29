@@ -449,6 +449,7 @@ class VideoUNet(nn.Module):
         num_video_frames: Optional[int] = None,
         image_only_indicator: Optional[th.Tensor] = None,
     ):
+        print("amani-dbg: ", x.shape)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional -> no, relax this TODO"
@@ -461,6 +462,7 @@ class VideoUNet(nn.Module):
             emb = emb + self.label_emb(y)
 
         h = x
+        # print("amani-dbg: ", h.shape)
         for module in self.input_blocks:
             h = module(
                 h,
@@ -479,6 +481,8 @@ class VideoUNet(nn.Module):
             time_context=time_context,
             num_video_frames=num_video_frames,
         )
+        feats = h.clone()
+        
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(
@@ -490,4 +494,4 @@ class VideoUNet(nn.Module):
                 num_video_frames=num_video_frames,
             )
         h = h.type(x.dtype)
-        return self.out(h)
+        return self.out(h), feats
